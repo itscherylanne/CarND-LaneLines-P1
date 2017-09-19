@@ -1,56 +1,177 @@
-# **Finding Lane Lines on the Road** 
-[![Udacity - Self-Driving Car NanoDegree](https://s3.amazonaws.com/udacity-sdc/github/shield-carnd.svg)](http://www.udacity.com/drive)
+# **SDC-ND Term 1 Project 1: Finding Lane Lines on the Road**
 
-<img src="examples/laneLines_thirdPass.jpg" width="480" alt="Combined Image" />
+## Objective
+### The objective of this project is to implement a lane detection algorithm in Python and OpenCV. This writeup details the processing pipeline, analyzes the results, and reflects on areas for improvement.
 
-Overview
 ---
 
-When we drive, we use our eyes to decide where to go.  The lines on the road that show us where the lanes are act as our constant reference for where to steer the vehicle.  Naturally, one of the first things we would like to do in developing a self-driving car is to automatically detect lane lines using an algorithm.
+### 1. Lane Detection Pipeline
 
-In this project you will detect lane lines in images using Python and OpenCV.  OpenCV means "Open-Source Computer Vision", which is a package that has many useful tools for analyzing images.  
+My processing pipeline consists of 5 major processing blocks with sub-steps. A given image/video frame will be its input. The output will be an image/video frame of the original image with the a drawn overlay of the detected left lane and right lane.
 
-To complete the project, two files will be submitted: a file containing project code and a file containing a brief write up explaining your solution. We have included template files to be used both for the [code](https://github.com/udacity/CarND-LaneLines-P1/blob/master/P1.ipynb) and the [writeup](https://github.com/udacity/CarND-LaneLines-P1/blob/master/writeup_template.md).The code file is called P1.ipynb and the writeup template is writeup_template.md 
-
-To meet specifications in the project, take a look at the requirements in the [project rubric](https://review.udacity.com/#!/rubrics/322/view)
-
-
-Creating a Great Writeup
----
-For this project, a great writeup should provide a detailed response to the "Reflection" section of the [project rubric](https://review.udacity.com/#!/rubrics/322/view). There are three parts to the reflection:
-
-1. Describe the pipeline
-
-2. Identify any shortcomings
-
-3. Suggest possible improvements
-
-We encourage using images in your writeup to demonstrate how your pipeline works.  
-
-All that said, please be concise!  We're not looking for you to write a book here: just a brief description.
-
-You're not required to use markdown for your writeup.  If you use another method please just submit a pdf of your writeup. Here is a link to a [writeup template file](https://github.com/udacity/CarND-LaneLines-P1/blob/master/writeup_template.md). 
+<center>Figure 1: Input Image</center>
+![img1](./test_images/whiteCarLaneSwitch.jpg)
 
 
-The Project
----
+<center>Figure 2: Output Image</center>
+![img2](./test_images_output/whiteCarLaneSwitch.jpg)
 
-## If you have already installed the [CarND Term1 Starter Kit](https://github.com/udacity/CarND-Term1-Starter-Kit/blob/master/README.md) you should be good to go!   If not, you should install the starter kit to get started on this project. ##
 
-**Step 1:** Set up the [CarND Term1 Starter Kit](https://classroom.udacity.com/nanodegrees/nd013/parts/fbf77062-5703-404e-b60c-95b78b2f3f9e/modules/83ec35ee-1e02-48a5-bdb7-d244bd47c2dc/lessons/8c82408b-a217-4d09-b81d-1bda4c6380ef/concepts/4f1870e0-3849-43e4-b670-12e6f2d4b7a7) if you haven't already.
+The processing pipeline is outlined as follows:
+* Yellow and White Lane Isolation
+  * Color Space Conversion
+  * Thresholding / Image Masking
+* Edge Detection
+  * Color to Grayscale Conversion
+  * Gaussian Smoothing
+  * Canny Edge detection
+* Region of Interest Filtering
+* Hough Line Transform
+* Detection of Left and Right Lane
+  * Sorting of Left and Right Lane
+  * Filtering of detected lines
+  * Calculated Average of Left and Right Lane
 
-**Step 2:** Open the code in a Jupyter Notebook
+#### 1.1 Yellow and White Lane Isolation
 
-You will complete the project code in a Jupyter notebook.  If you are unfamiliar with Jupyter Notebooks, check out <A HREF="https://www.packtpub.com/books/content/basics-jupyter-notebook-and-python" target="_blank">Cyrille Rossant's Basics of Jupyter Notebook and Python</A> to get started.
+This processing step was added after trying to accomplish the challenge problem at the end of the the assignment. Shadows and variations in illumination would adversely affect the edge detection of the lanes when feeding in the gray scaled image. The edge would not be detected when specific pixels were dark due to shadows. Thus, the image would need to be isolated using a different colorspace.
 
-Jupyter is an Ipython notebook where you can run blocks of code and see results interactively.  All the code for this project is contained in a Jupyter notebook. To start Jupyter in your browser, use terminal to navigate to your project directory and then run the following command at the terminal prompt (be sure you've activated your Python 3 carnd-term1 environment as described in the [CarND Term1 Starter Kit](https://github.com/udacity/CarND-Term1-Starter-Kit/blob/master/README.md) installation instructions!):
+The color value of the yellow and white lane were analyzed in various colorspaces. RGB, LAB, HSV, HSL, and YCbCr were considered. From playing with various color spaces and hand-picking thresholds, the yellow lane was isolated in the HSV colorspace and the white lane was isolated in HLS colorspace.
 
-`> jupyter notebook`
+The yellow lane was isolated in the HSV colorspace with the following ranges
+* H: 10 to 50
+* S: 0 to 255
+* V:0 to 100
 
-A browser window will appear showing the contents of the current directory.  Click on the file called "P1.ipynb".  Another browser window will appear displaying the notebook.  Follow the instructions in the notebook to complete the project.  
+The yellow lane was isolated by the function isolate_yellow_lane():
+```
+def isolate_yellow_lane(image):
+    cvt_img = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
+    isolate_image = np.copy(cvt_img)
+    th_img = (image[:,:,0] < 10) \
+                | (image[:,:,0] > 50) \
+                | (image[:,:,1] < 100)
+    isolate_image[th_img] = [0,0,0]    
+    return isolate_image
+```
 
-**Step 3:** Complete the project and submit both the Ipython notebook and the project writeup
+The white lane was isolated in the HLS colorspace with the following ranges
+* H: 0 to 255
+* L: 220 to 255
+* S: 0 to 255
 
-## How to write a README
-A well written README file can enhance your project and portfolio.  Develop your abilities to create professional README files by completing [this free course](https://www.udacity.com/course/writing-readmes--ud777).
+The white lane was isolated by the function isolate_white_lane():
+```
+def isolate_white_lane(image):
+    cvt_img = cv2.cvtColor(image, cv2.COLOR_RGB2HLS)    
+    isolate_image = np.copy(cvt_img)
+    th_img = (image[:,:,1] < 220)
+    isolate_image[th_img] = [0,0,0]    
+    return isolate_image
+```
 
+The two isolated images were bit-wise OR-ed to create the image that will undergo the line detection.
+```
+yellow_lane = isolate_yellow_lane(image)
+white_lane = isolate_white_lane(image)
+
+#Combine detected Yellow and White Lane Images
+color_select = cv2.bitwise_or(yellow_lane, white_lane)
+```
+
+
+#### 1.2 Edge Detection
+The pipeline for edge detection did not change much from what was provided in lecture. I have found that a 1:3 ratio for the low and high hysteresis thresholds worked best for the Canny edge detection. The parameters I chose were:
+* Low threshold: 50
+* High threshold: 150
+
+```
+gray_img = grayscale(color_select)
+blur_img = gaussian_blur (gray_img, 11)
+edge_img = canny(blur_img, 50, 150)
+```
+
+#### 1.3 Region of Interest Filtering
+The region of interest is defined as the area in the frame that is considered to be the driver's lane. In this project, the region of interest was a trapezoid that was scaled by the image size.
+
+The region of interest was applied to the detected edge image to zero-out edge pixels outside of the of the lane.
+```
+#gather image information, define region of interest
+imshape = image.shape
+rows = imshape[0]
+cols = imshape[1]
+vertices = np.array([[(cols*.55,rows*.6),(cols*.45,rows*.6),(cols*.05,rows-1),(cols*.95,rows-1)]], dtype=np.int32)   
+
+#zero out pixels outside of ROI
+roi_img = region_of_interest(edge_img, vertices)
+```
+
+#### 1.4 Hough Line Transform
+The Hough transform takes the filtered edge image and transforms it to parameter space. The parameter space is in polar coordinates which describe a straight line. The parameters that go into the Hough transform form the resolution of the detection and creates bounds on what is detected. The output of the Hough transform are detected line segments.
+```
+rho = 1 # distance resolution in pixels of the Hough grid
+theta = np.pi/180 # angular resolution in radians of the Hough grid
+threshold = 10     # minimum number of votes (intersections in Hough grid cell)
+min_line_length = 10 #minimum number of pixels making up a line
+max_line_gap = 10    # maximum gap in pixels between connectable line segments    
+
+hough_img = hough_lines(roi_img, rho, theta, threshold, min_line_length, max_line_gap)
+```
+
+
+#### 1.5 Detection of Left and Right Lane
+The output of hough transform is a list of vertices that represent the detected line segment. The list is analyzed and a final detected line was drawn for both the left lane and right lane. This process was done in the function draw_lines().
+
+
+When analyzing the list, the slope of the lane was calculated to determine where it is the left lane or the right lane. The detected line was considered to be the left lane if it had a positive slope. The right lane was considered to have a negative slope.
+
+Additional checks on the calculated slope were placed to filter out horizontal lines and completely vertical lines. A slope between 0.4 and 0.8 was determined to be the left lane. A slope between -1.0 and -0.6 was determined to be the right lane. The need for additional filtering was determined during the challenge problem.
+```
+for line in lines:
+    for x1,y1,x2,y2 in line:
+        if(x1 != x2):
+            m = (y2-y1)/(x2-x1)
+            if (m < -0.6) & (m > -1.0):
+                right_lane_m.append(m)
+                right_lane_b.append(y2 - m*x2)
+                right_lane_b.append(y1 - m*x1)
+            if (m < 0.8) & (m > 0.4):
+                left_lane_m.append(m)
+                left_lane_b.append(y2 - m*x2)
+                left_lane_b.append(y1 - m*x1)   
+```
+
+The average lane was calculated and then drawn on the image:
+```
+if len(left_lane_m) > 0:
+    left_m_avg = sum(left_lane_m)/len(left_lane_m)
+    left_b_avg = sum(left_lane_b)/len(left_lane_b)
+    left_y1 = rows-1
+    left_x1 = int((left_y1 - left_b_avg)/ left_m_avg)
+    left_y2 = int(rows*0.6)
+    left_x2 = int((left_y2 - left_b_avg)/ left_m_avg)
+    cv2.line(img, (left_x1, left_y1), (left_x2, left_y2), color, thickness)
+
+if len(right_lane_m) > 0:
+    right_m_avg = sum(right_lane_m)/len(right_lane_m)
+    right_b_avg = sum(right_lane_b)/len(right_lane_b)        
+    right_y1 = rows-1
+    right_x1 = int((right_y1 - right_b_avg)/ right_m_avg)
+    right_y2 = int(rows*0.6)
+    right_x2 = int((right_y2 - right_b_avg)/ right_m_avg)
+    cv2.line(img, (right_x1, right_y1), (right_x2, right_y2), color, thickness)
+```
+
+### 2. Analysis
+When analyzing the test videos, the detected line would not coincide with the lane in the image in all frames.This is due to how the edge was detected in the image and the fact that the final detected line was based on the line information detected in the given frame.
+
+There would be moments when the detected lane would appear to jiggle from frame to frame and at times intersect with the opposite lane line. This was due to inconsistent line detection for a particular lane. There were instances when the detection of the left side of the lane would not match the detection of the right side of the lane. This would create a bias towards the side of the lane that had more of its edge detected.
+
+Another shortcoming with the algorithm is that it can only handle straight lanes. The Hough line transform is what constrains the problem to straight lines. When dealing with the test sets that have a bend in the road, the algorithm would detect the a line that would diverge tangentially to the bend in the road.
+
+### 3. Reflection
+This reflection is limited to improving the detection given only the image/video. It should be noted though that the detection can improve when fusing information from other sensors. Having more information about the environment to fuse with the detected image solution can only improve the detection.
+
+The algorithm can improve by using time-history information on the detected line. Using a windowed average of the detected line over a few frames will reduce the amount of variation of the detected line between frames.
+
+The Hough transform was specifically for straight lines. This transform falls short when there are bends on the road. It may be favorable to determine another parameter space that will accommodate curved lines.
