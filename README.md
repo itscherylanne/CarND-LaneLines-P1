@@ -9,12 +9,12 @@
 
 My processing pipeline consists of 5 major processing blocks with sub-steps. A given image/video frame will be its input. The output will be an image/video frame of the original image with the a drawn overlay of the detected left lane and right lane.
 
-<center>Figure 1: Input Image</center>
-![img1](https://github.com/itscherylanne/CarND-LaneLines-P1/blob/master/test_images/whiteCarLaneSwitch.jpg)
+Figure 1: Input Image
+![Alt Text](https://github.com/itscherylanne/CarND-LaneLines-P1/blob/master/test_images/whiteCarLaneSwitch.jpg)
 
 
-<center>Figure 2: Output Image</center>
-![img2](https://github.com/itscherylanne/CarND-LaneLines-P1/blob/master/test_images_output/whiteCarLaneSwitch.jpg)
+Figure 2: Output Image
+![Alt Text](https://github.com/itscherylanne/CarND-LaneLines-P1/blob/master/test_images_output/whiteCarLaneSwitch.jpg)
 
 
 The processing pipeline is outlined as follows:
